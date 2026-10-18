@@ -7,7 +7,7 @@ import numpy as np
 st.set_page_config(page_title="Buscador de Bodega - Vision AI", layout="wide")
 
 st.title("📦 Buscador Visual de Bodega")
-st.caption("Sistema de escaneo rápido para inventario y ubicaciones.")
+st.caption("Sistema de escaneo rápido para control de inventario y ubicaciones.")
 
 # Cargar el motor de OCR en caché protegido
 @st.cache_resource
@@ -24,11 +24,9 @@ col1, col2 = st.columns([1, 1])
 with col1:
     parte_buscada = st.text_input("SKU o Número de Parte a buscar:", value="13J2237")
     
-    # Usar un uploader optimizado que acepta imágenes directas de la cámara o galería
     foto_capturada = st.file_uploader(
         "Toma la foto o selecciónala de tu galería:", 
-        type=["jpg", "jpeg", "png"],
-        help="Al presionar puedes usar la cámara de tu celular con zoom y confirmar la foto."
+        type=["jpg", "jpeg", "png"]
     )
 
 if foto_capturada and parte_buscada:
@@ -36,7 +34,7 @@ if foto_capturada and parte_buscada:
         if reader is None:
             st.error("Error al cargar el motor de IA. Por favor recarga la página.")
         else:
-            with st.spinner("Procesando imagen automáticamente..."):
+            with st.spinner("Procesando imagen y contando existencias..."):
                 try:
                     bytes_data = foto_capturada.getvalue()
                     imagen_np = cv2.imdecode(np.frombuffer(bytes_data, np.uint8), cv2.IMREAD_COLOR)
@@ -53,17 +51,16 @@ if foto_capturada and parte_buscada:
                         cv2.imwrite("temp_frame.jpg", imagen_np)
                         resultados = reader.readtext("temp_frame.jpg")
                         
-                        # Mostrar textos detectados para control
-                        lista_leida = [res[1].strip() for res in resultados]
-                        st.info(f"🔍 Textos detectados automáticamente: {lista_leida}")
+                        # NOTA: Se removió la línea azul de texto detectado para mantener la pantalla limpia
                         
                         # Dibujar barra de estado superior
                         h_img, w_img, _ = imagen_np.shape
                         cv2.rectangle(imagen_np, (0, 0), (w_img, 40), (60, 60, 60), -1)
-                        cv2.putText(imagen_np, "ANALISIS AUTOMATICO COMPLETADO", (15, 28),
+                        cv2.putText(imagen_np, "CONTROL DE INVENTARIO ACTIVO", (15, 28),
                                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2, cv2.LINE_AA)
                         
                         encontrado = False
+                        contador_coincidencias = 0  # <--- Contador de apariciones del SKU
                         
                         for bbox, texto, probabilidad in resultados:
                             pt1 = (int(bbox[0][0]), int(bbox[0][1]))
@@ -75,6 +72,8 @@ if foto_capturada and parte_buscada:
                             
                             if busqueda_norm in texto_norm or any(p in texto_norm for p in busqueda_norm.split('-')):
                                 encontrado = True
+                                contador_coincidencias += 1  # <--- Sumar cada vez que lo encuentra
+                                
                                 # Recuadro verde brillante para el código encontrado
                                 cv2.rectangle(imagen_np, pt1, pt2, (0, 255, 0), 4)
                                 
@@ -90,10 +89,11 @@ if foto_capturada and parte_buscada:
                         
                         imagen_rgb = cv2.cvtColor(imagen_np, cv2.COLOR_BGR2RGB)
                         
+                        # Feedback con el conteo total en pantalla
                         if encontrado:
-                            st.success(f"¡Código '{parte_buscada}' localizado con éxito!")
+                            st.success(f"¡Producto '{parte_buscada}' localizado! Se encontraron **{contador_coincidencias}** coincidencia(s) en esta toma.")
                         else:
-                            st.warning(f"No se halló coincidencia exacta para '{parte_buscada}' en esta toma.")
+                            st.warning(f"No se halló el código '{parte_buscada}' en esta toma.")
                             
                         st.image(imagen_rgb, use_container_width=True)
                         
