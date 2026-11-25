@@ -1,2 +1,2 @@
 # buscador-bodega
-interfase para buscar elementos en una bodega perdida
+interfase para buscar elementos perdidos en una en una bodega.
